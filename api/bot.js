@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
-const mongoose = require('/src/database/mongodb');
+const mongoose = require('../src/database/mongodb');
 const { setupBot } = require('../src/bot/setup');
 const logger = require('./src/utils/logger');
 
