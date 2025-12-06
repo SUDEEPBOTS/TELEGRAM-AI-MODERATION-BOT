@@ -5,8 +5,7 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // Local modules (note: .. because api/ ke bahar src/ hai)
-// yaha pe 'mongoose' naam confuse kar raha tha, isko DB helper ki tarah treat karo
-const { connectToDatabase } = require('../src/database/mongodb'); // ⬅️ yaha change
+const db = require('../src/database/mongodb');   // ⬅️ yaha change
 const { setupBot } = require('../src/bot/setup');
 const logger = require('../src/utils/logger');
 const { startAllJobs } = require('../src/utils/cronJobs');
@@ -79,15 +78,14 @@ async function setWebhook() {
 }
 
 // Start server (for local dev / Node server)
-// Vercel apne aap request handle karega, lekin ye code load hote hi run hoga
 app.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT}`);
 
   // Set webhook
   await setWebhook();
 
-  // Connect to MongoDB  ⬅️ yaha change
-  await connectToDatabase(); // pehle: await mongoose.connectToDatabase();
+  // ✅ Correct DB connection
+  await db.connect();          // ⬅️ yaha change
 
   // Start cron jobs
   startAllJobs(bot);
