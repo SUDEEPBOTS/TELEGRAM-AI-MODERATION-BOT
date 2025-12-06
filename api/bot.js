@@ -5,6 +5,64 @@ const TelegramBot = require('node-telegram-bot-api');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Add this at the TOP of api/bot.js
+console.log('🚀 Bot starting...');
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Vercel URL:', process.env.VERCEL_URL);
+console.log('Bot Token present:', !!process.env.TELEGRAM_BOT_TOKEN);
+
+// Update the webhook initialization:
+async function initializeBot() {
+  try {
+    if (!BOT_TOKEN) {
+      console.warn('⚠️ TELEGRAM_BOT_TOKEN not set. Bot features disabled.');
+      return;
+    }
+    
+    // Get bot info
+    const botInfo = await bot.getMe();
+    console.log(`🤖 Bot initialized: @${botInfo.username} (${botInfo.id})`);
+    
+    // ALWAYS set webhook (not just in production)
+    const vercelUrl = process.env.VERCEL_URL || 'telegram-ai-yuki-llye3w5d0-sudeeps-projects-b2376a53.vercel.app';
+    const webhookUrl = `https://${vercelUrl}/webhook`;
+    
+    console.log(`🔗 Setting webhook to: ${webhookUrl}`);
+    
+    // Delete old webhook first
+    try {
+      await bot.deleteWebHook();
+      console.log('🗑️ Old webhook deleted');
+    } catch (deleteError) {
+      console.log('No old webhook to delete');
+    }
+    
+    // Set new webhook
+    const setResult = await bot.setWebHook(webhookUrl);
+    console.log('✅ Webhook set result:', setResult);
+    
+    // Verify webhook
+    const webhookInfo = await bot.getWebHookInfo();
+    console.log('📋 Webhook info:', JSON.stringify(webhookInfo, null, 2));
+    
+    // Set bot commands
+    await bot.setMyCommands([
+      { command: 'start', description: 'Start the bot' },
+      { command: 'help', description: 'Show help' },
+      { command: 'ping', description: 'Check bot status' },
+      { command: 'id', description: 'Get ID information' },
+      { command: 'report', description: 'Report a message' },
+      { command: 'settings', description: 'Bot settings' }
+    ]);
+    
+    console.log('✅ Bot commands set successfully');
+    
+  } catch (error) {
+    console.error('❌ Bot initialization error:', error.message);
+    console.error('Stack:', error.stack);
+  }
+}
+
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
