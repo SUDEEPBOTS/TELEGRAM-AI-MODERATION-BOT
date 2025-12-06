@@ -5,7 +5,7 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // Local modules
-const db = require('../src/database/mongodb');        // ⬅️ yaha se class instance aa raha hai
+const db = require('../src/database/mongodb');      // ✅ sahi import
 const { setupBot } = require('../src/bot/setup');
 const logger = require('../src/utils/logger');
 const { startAllJobs } = require('../src/utils/cronJobs');
@@ -35,7 +35,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Debug GET for webhook (browser se check karne ke liye)
+// 🔹 Telegram test ke liye GET /webhook bhi OK return kare
 app.get('/webhook', (req, res) => {
   res.status(200).send('OK');
 });
@@ -44,6 +44,7 @@ app.get('/webhook', (req, res) => {
 app.post('/webhook', async (req, res) => {
   try {
     const update = req.body;
+    logger.info('Incoming update', { update });  // optional logging
     await bot.processUpdate(update);
     res.sendStatus(200);
   } catch (error) {
@@ -81,18 +82,19 @@ async function setWebhook() {
   }
 }
 
-// Local server / Vercel function init
+// Start server
 app.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT}`);
 
-  // Webhook set karo
+  // Set webhook
   await setWebhook();
 
-  // MongoDB connect
-  await db.connect();              // ⬅️ dhyaan: yahi method hai, connectToDatabase nahi
+  // ✅ Connect to MongoDB (sahi function)
+  await db.connect();
 
-  // Cron jobs start
+  // Start cron jobs
   startAllJobs(bot);
+  logger.info('Cron jobs started');
 });
 
 // Export for Vercel
