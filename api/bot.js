@@ -5,24 +5,26 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // Local modules
-const db = require('../src/database/mongodb');   // 👈 DB helper instance (no destructuring)
+const db = require('../src/database/mongodb');        // ⬅️ yaha se class instance aa raha hai
 const { setupBot } = require('../src/bot/setup');
 const logger = require('../src/utils/logger');
 const { startAllJobs } = require('../src/utils/cronJobs');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Telegram Bot (no polling, webhook only)
+// Initialize Telegram Bot
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-  polling: false
+  polling: false,
+  webHook: {
+    host: '0.0.0.0',
+    port: PORT
+  }
 });
-
-// Setup bot handlers
-setupBot(bot);
 
 // Health check endpoint
 app.get('/', (req, res) => {
@@ -33,16 +35,14 @@ app.get('/', (req, res) => {
   });
 });
 
-// 👇 DEBUG + browser check: GET /webhook
+// Debug GET for webhook (browser se check karne ke liye)
 app.get('/webhook', (req, res) => {
-  logger.info('GET /webhook hit (browser/health)');
-  res.status(200).send('Webhook endpoint is alive (GET). Use POST from Telegram.');
+  res.status(200).send('OK');
 });
 
 // Webhook endpoint (Telegram yaha POST karega)
 app.post('/webhook', async (req, res) => {
   try {
-    logger.info('POST /webhook update received');
     const update = req.body;
     await bot.processUpdate(update);
     res.sendStatus(200);
@@ -52,24 +52,16 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// Webhook + DB + cron jobs init
-async function init() {
+// Setup bot handlers
+setupBot(bot);
+
+// Set webhook on startup
+async function setWebhook() {
   try {
-    // DB connect
-    await db.connect();
-    logger.info('MongoDB connected from init()');
-
-    // Webhook URL env se
-    const baseUrl =
-      process.env.TELEGRAM_WEBHOOK_URL ||
-      'https://telegram-ai-moderation-bot.vercel.app/api/bot';
-
-    const webhookUrl = `${baseUrl}/webhook`;
-
+    const webhookUrl = `${process.env.TELEGRAM_WEBHOOK_URL}/webhook`;
     await bot.setWebHook(webhookUrl);
     logger.info(`Webhook set to: ${webhookUrl}`);
 
-    // Commands
     await bot.setMyCommands([
       { command: 'ping', description: 'Check bot latency' },
       { command: 'stats', description: 'Get bot statistics' },
@@ -84,25 +76,24 @@ async function init() {
     ]);
 
     logger.info('Bot commands set successfully');
-
-    // Cron jobs
-    startAllJobs(bot);
-    logger.info('Cron jobs started');
   } catch (error) {
-    logger.error('Error in init():', error);
+    logger.error('Error setting webhook:', error);
   }
 }
 
-// Vercel par sirf init call, listen nahi
-init();
+// Local server / Vercel function init
+app.listen(PORT, async () => {
+  logger.info(`Server running on port ${PORT}`);
 
-// Local development ke liye (agar kabhi Node se run karo)
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    logger.info(`Local server running on port ${PORT}`);
-  });
-}
+  // Webhook set karo
+  await setWebhook();
+
+  // MongoDB connect
+  await db.connect();              // ⬅️ dhyaan: yahi method hai, connectToDatabase nahi
+
+  // Cron jobs start
+  startAllJobs(bot);
+});
 
 // Export for Vercel
 module.exports = app;
