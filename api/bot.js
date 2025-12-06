@@ -1,14 +1,13 @@
-// /api/bot.js
+// api/bot.js
 
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
-// Local modules (note: .. because api/ ke bahar src/ hai)
-const mongoose = require('../src/database/mongodb');
-const { setupBot } = require('../src/bot/setup');
-const logger = require('../src/utils/logger');
-const { startAllJobs } = require('../src/utils/cronJobs');
+const db = require('../src/database/mongodb');       // ✅ correct path
+const { setupBot } = require('../src/bot/setup');    // ✅ correct path
+const logger = require('../src/utils/logger');       // ✅ correct path
+const { startAllJobs } = require('../src/utils/cronJobs'); // ✅ correct path
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,13 +16,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Telegram Bot
+// Initialize Telegram Bot (webhook mode)
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-  polling: false,
-  webHook: {
-    host: '0.0.0.0',
-    port: PORT
-  }
+  polling: false
 });
 
 // Health check endpoint
@@ -35,7 +30,7 @@ app.get('/', (req, res) => {
   });
 });
 
-// Webhook endpoint
+// Webhook endpoint (Vercel pe ye URL hoga: https://<project>/api/bot/webhook)
 app.post('/webhook', async (req, res) => {
   try {
     const update = req.body;
@@ -47,17 +42,21 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
-// Setup bot handlers
+// Setup bot handlers (commands, listeners, etc.)
 setupBot(bot);
 
-// Set webhook on startup
+// Webhook set karne wala function
 async function setWebhook() {
   try {
-    const webhookUrl = `${process.env.TELEGRAM_WEBHOOK_URL}/webhook`;
+    // Example:
+    // TELEGRAM_WEBHOOK_URL = https://telegram-ai-yuki-xxxxx.vercel.app/api/bot
+    const baseUrl = process.env.TELEGRAM_WEBHOOK_URL;
+    const webhookUrl = `${baseUrl}/webhook`;
+
     await bot.setWebHook(webhookUrl);
     logger.info(`Webhook set to: ${webhookUrl}`);
 
-    // Set bot commands
+    // Commands set karna
     await bot.setMyCommands([
       { command: 'ping', description: 'Check bot latency' },
       { command: 'stats', description: 'Get bot statistics' },
@@ -77,20 +76,30 @@ async function setWebhook() {
   }
 }
 
-// Start server (for local dev / Node server)
-// Vercel apne aap request handle karega, lekin ye code load hote hi run hoga
-app.listen(PORT, async () => {
-  logger.info(`Server running on port ${PORT}`);
+// Init function: DB connect + webhook + cron jobs
+async function init() {
+  try {
+    await db.connectToDatabase();
+    logger.info('MongoDB connected');
 
-  // Set webhook
-  await setWebhook();
+    await setWebhook();
 
-  // Connect to MongoDB
-  await mongoose.connectToDatabase();
+    startAllJobs(bot);
+    logger.info('Cron jobs started');
+  } catch (error) {
+    logger.error('Error during bot initialization:', error);
+  }
+}
 
-  // Start cron jobs
-  startAllJobs(bot);
-});
+// Vercel pe: module load hote hi init chalega (cold start par)
+init();
 
-// Export for Vercel
+// Local development ke liye: sirf jab seedha `node api/bot.js` run karo
+if (require.main === module) {
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+  });
+}
+
+// Vercel ke liye Express app export
 module.exports = app;
