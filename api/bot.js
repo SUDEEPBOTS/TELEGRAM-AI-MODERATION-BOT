@@ -3,7 +3,7 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 const mongoose = require('../src/database/mongodb');
 const { setupBot } = require('../src/bot/setup');
-const logger = require('./src/utils/logger');
+const logger = require('../src/utils/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
