@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/bot.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["src/**", "node_modules/**"]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api/bot.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+      }
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "regions": ["bom1"],
+  "functions": {
+    "api/bot.js": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}
