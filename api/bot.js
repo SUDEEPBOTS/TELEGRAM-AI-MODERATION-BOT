@@ -5,7 +5,8 @@ const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
 
 // Local modules (note: .. because api/ ke bahar src/ hai)
-const mongoose = require('../src/database/mongodb');
+// yaha pe 'mongoose' naam confuse kar raha tha, isko DB helper ki tarah treat karo
+const { connectToDatabase } = require('../src/database/mongodb'); // ⬅️ yaha change
 const { setupBot } = require('../src/bot/setup');
 const logger = require('../src/utils/logger');
 const { startAllJobs } = require('../src/utils/cronJobs');
@@ -85,8 +86,8 @@ app.listen(PORT, async () => {
   // Set webhook
   await setWebhook();
 
-  // Connect to MongoDB
-  await mongoose.connectToDatabase();
+  // Connect to MongoDB  ⬅️ yaha change
+  await connectToDatabase(); // pehle: await mongoose.connectToDatabase();
 
   // Start cron jobs
   startAllJobs(bot);
