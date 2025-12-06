@@ -1,9 +1,14 @@
+// /api/bot.js
+
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
-const mongoose = require('./src/database/mongodb');
+
+// Local modules (note: .. because api/ ke bahar src/ hai)
+const mongoose = require('../src/database/mongodb');
 const { setupBot } = require('../src/bot/setup');
-const logger = require('./src/utils/logger');
+const logger = require('../src/utils/logger');
+const { startAllJobs } = require('../src/utils/cronJobs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,8 +28,8 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
 
 // Health check endpoint
 app.get('/', (req, res) => {
-  res.json({ 
-    status: 'online', 
+  res.json({
+    status: 'online',
     service: 'Telegram AI Moderation Bot',
     version: '1.0.0'
   });
@@ -51,7 +56,7 @@ async function setWebhook() {
     const webhookUrl = `${process.env.TELEGRAM_WEBHOOK_URL}/webhook`;
     await bot.setWebHook(webhookUrl);
     logger.info(`Webhook set to: ${webhookUrl}`);
-    
+
     // Set bot commands
     await bot.setMyCommands([
       { command: 'ping', description: 'Check bot latency' },
@@ -65,23 +70,26 @@ async function setWebhook() {
       { command: 'unban', description: 'Unban a user' },
       { command: 'unmute', description: 'Unmute a user' }
     ]);
-    
+
     logger.info('Bot commands set successfully');
   } catch (error) {
     logger.error('Error setting webhook:', error);
   }
 }
 
-// Start server
+// Start server (for local dev / Node server)
+// Vercel apne aap request handle karega, lekin ye code load hote hi run hoga
 app.listen(PORT, async () => {
   logger.info(`Server running on port ${PORT}`);
+
+  // Set webhook
   await setWebhook();
-  
+
   // Connect to MongoDB
   await mongoose.connectToDatabase();
-  
+
   // Start cron jobs
-  require('./src/utils/cronJobs').startAllJobs(bot);
+  startAllJobs(bot);
 });
 
 // Export for Vercel
