@@ -1,12 +1,10 @@
 {
+  "name": "yuki-mod-ai",
   "version": 2,
   "builds": [
     {
       "src": "api/bot.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["src/**", "node_modules/**"]
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -24,11 +22,5 @@
   "env": {
     "NODE_ENV": "production"
   },
-  "regions": ["bom1"],
-  "functions": {
-    "api/bot.js": {
-      "memory": 1024,
-      "maxDuration": 60
-    }
-  }
+  "regions": ["bom1"]
 }
