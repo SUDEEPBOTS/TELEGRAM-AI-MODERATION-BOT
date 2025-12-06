@@ -1,88 +1,65 @@
+// api/bot.js
 require('dotenv').config();
 const express = require('express');
 const TelegramBot = require('node-telegram-bot-api');
-const mongoose = require('../src/database/mongodb');
 const { setupBot } = require('../src/bot/setup');
 const logger = require('../src/utils/logger');
+// const mongoose = require('../src/database/mongodb');
+// const cronJobs = require('../src/utils/cronJobs');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-// Middleware
+// Vercel apne aap port handle karta hai – yaha app.listen mat use karo
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize Telegram Bot
+// ✅ Simple bot instance – NO polling, NO internal webhook server
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, {
-  polling: false,
-  webHook: {
-    host: '0.0.0.0',
-    port: PORT
-  }
+  polling: false
 });
 
-// Health check endpoint
+// Bot handlers attach karo
+setupBot(bot);
+
+// Health check
 app.get('/', (req, res) => {
-  res.json({ 
-    status: 'online', 
+  res.json({
+    status: 'online',
     service: 'Telegram AI Moderation Bot',
     version: '1.0.0'
   });
 });
 
-// Webhook endpoint
+// ✅ Debug route (optional)
+app.get('/webhook', (req, res) => {
+  res.status(200).send('Webhook endpoint is alive (GET)');
+});
+
+// ✅ Webhook route – Telegram yaha POST karega
 app.post('/webhook', async (req, res) => {
   try {
+    logger.info('Incoming update from Telegram', {
+      body: req.body,
+      headers: req.headers
+    });
+
     const update = req.body;
     await bot.processUpdate(update);
+
+    // Bahut important: hamesha 200 bhejo
     res.sendStatus(200);
   } catch (error) {
     logger.error('Webhook error:', error);
-    res.status(500).send('Error processing update');
+    // Even on error, Telegram ko 200 de sakte ho, taki "wrong response" error na aaye
+    res.sendStatus(200);
   }
 });
 
-// Setup bot handlers
-setupBot(bot);
+// ❌ IMPORTANT: yaha app.listen() BILKUL NAHI hoga Vercel pe
+// app.listen(PORT, ... ) hata do
 
-// Set webhook on startup
-async function setWebhook() {
-  try {
-    const webhookUrl = `${process.env.TELEGRAM_WEBHOOK_URL}/webhook`;
-    await bot.setWebHook(webhookUrl);
-    logger.info(`Webhook set to: ${webhookUrl}`);
-    
-    // Set bot commands
-    await bot.setMyCommands([
-      { command: 'ping', description: 'Check bot latency' },
-      { command: 'stats', description: 'Get bot statistics' },
-      { command: 'refresh', description: 'Refresh bot cache' },
-      { command: 'setrules', description: 'Set group rules' },
-      { command: 'approve', description: 'Approve user to ignore list' },
-      { command: 'ban', description: 'Ban a user' },
-      { command: 'mute', description: 'Mute a user' },
-      { command: 'warn', description: 'Warn a user' },
-      { command: 'unban', description: 'Unban a user' },
-      { command: 'unmute', description: 'Unmute a user' }
-    ]);
-    
-    logger.info('Bot commands set successfully');
-  } catch (error) {
-    logger.error('Error setting webhook:', error);
-  }
-}
+// ❌ Ye bhi abhi mat karo: bot.setWebHook() yaha se
+// Webhook hum manually Telegram API se set karenge curl se
 
-// Start server
-app.listen(PORT, async () => {
-  logger.info(`Server running on port ${PORT}`);
-  await setWebhook();
-  
-  // Connect to MongoDB
-  await mongoose.connectToDatabase();
-  
-  // Start cron jobs
-  require('./src/utils/cronJobs').startAllJobs(bot);
-});
-
-// Export for Vercel
+// ✅ Vercel ke liye export
 module.exports = app;
